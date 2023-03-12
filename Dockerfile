@@ -37,7 +37,7 @@ RUN mkdir -p /output /root/stable-diffusion/outputs \
 ENV PYTHONUNBUFFERED=1
 ENV GRADIO_SERVER_NAME=0.0.0.0
 ENV GRADIO_SERVER_PORT=7860 
-ENV APP_MAIN_FILE=${OPTIMIZED_FILE}
+#ENV APP_MAIN_FILE=${OPTIMIZED_FILE}
 EXPOSE 7860
 
 VOLUME ["/root/.cache", "/data", "/output"]

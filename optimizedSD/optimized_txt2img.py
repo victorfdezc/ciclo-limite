@@ -263,9 +263,11 @@ with torch.no_grad():
     for n in trange(opt.n_iter, desc="Sampling"):
         for prompts in tqdm(data, desc="data"):
 
-            sample_path = os.path.join(outpath, "_".join(re.split(":| ", prompts[0])))[:150]
+            # sample_path = os.path.join(outpath, "_".join(re.split(":| ", prompts[0])))[:150]
+            sample_path = os.path.join(outpath, "ciclo_limite")
             os.makedirs(sample_path, exist_ok=True)
-            base_count = len(os.listdir(sample_path))
+            # base_count = len(os.listdir(sample_path))
+            base_count = 0
 
             with precision_scope("cuda"):
                 modelCS.to(opt.device)
@@ -318,8 +320,11 @@ with torch.no_grad():
                     x_samples_ddim = modelFS.decode_first_stage(samples_ddim[i].unsqueeze(0))
                     x_sample = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
                     x_sample = 255.0 * rearrange(x_sample[0].cpu().numpy(), "c h w -> h w c")
+                    # Image.fromarray(x_sample.astype(np.uint8)).save(
+                    #     os.path.join(sample_path, "seed_" + str(opt.seed) + "_" + f"{base_count:05}.{opt.format}")
+                    # )
                     Image.fromarray(x_sample.astype(np.uint8)).save(
-                        os.path.join(sample_path, "seed_" + str(opt.seed) + "_" + f"{base_count:05}.{opt.format}")
+                        os.path.join(sample_path, "image_" + f"{base_count:05}.{opt.format}")
                     )
                     seeds += str(opt.seed) + ","
                     opt.seed += 1

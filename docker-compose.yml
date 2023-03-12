@@ -9,7 +9,7 @@ services:
       - ../sd-output:/output
       - sd-cache:/root/.cache
     environment:
-      - APP_MAIN_FILE=txt2img_gradio.py
+      - APP_MAIN_FILE=ciclo_limite.py
     deploy:
       resources:
         reservations:
