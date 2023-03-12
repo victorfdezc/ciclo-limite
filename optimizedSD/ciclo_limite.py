@@ -50,5 +50,12 @@ while 1:
         queue_prompt.pop(0)
 
         print("Image Generated")
+
+        print("----------------------------------------------")
+        print("Caption for generated image:")
+        command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py"
+        os.system(command)
+        print("----------------------------------------------")
+
     else:
         continue
