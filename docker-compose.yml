@@ -17,5 +17,14 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto_config/:/mosquitto/config/
+      - ./mosquitto_log/:/mosquitto/log/
+      - mosquitto_data:/mosquitto/data/
+    ports:
+      - 1883:1883
+      - 9001:9001
 volumes:
   sd-cache:

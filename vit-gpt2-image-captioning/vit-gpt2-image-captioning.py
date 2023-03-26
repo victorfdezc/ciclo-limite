@@ -33,4 +33,8 @@ def predict_step(image_paths):
   preds = [pred.strip() for pred in preds]
   return preds
 
-print(predict_step(['/output/ciclo_limite/image_00000.png']))
+
+# Open or create a file if exists and write the predicted caption
+with open("output/ciclo_limite/caption.txt", "w+") as text_file:
+  caption = predict_step(['/output/ciclo_limite/image_00000.png'])
+  text_file.write(caption)
