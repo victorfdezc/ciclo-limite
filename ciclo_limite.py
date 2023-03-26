@@ -3,10 +3,10 @@ import re
 import time
 import os
 from threading import Thread
-import paho.mqtt.client as paho
+import paho.mqtt.client as mqtt
 
 ########### Ciclo Limite Parameters ###########
-ncycles_prompt = 5 # Number of cycles per prompt
+max_ncycles_prompt = 5 # max number of cycles per prompt
 
 ########### Stable Diffusion Parameters ###########
 ddim_steps = 15
@@ -18,13 +18,13 @@ outdir = "outputs/txt2img-samples"
 link = "https://rosmolarr.pythonanywhere.com/last"
 
 ########### MQTT Parameters ###########
-broker_hostname = "localhost"
+broker_hostname = "mosquitto"
 broker_port = 1883
 topic = "ciclo-limite"
 
 ############# Globals Definition #############
 queue_prompt = []
-sd_prompt = ""
+vit_caption = ""
 client = mqtt.Client() # Set up the MQTT client
 sd_unlock = False
 vit_gpt2_unlock = False
@@ -46,42 +46,53 @@ def queue_thread():
             queue_prompt.append(new_prompt)
             print("New prompt: " + str(queue_prompt))
             prev_prompt = new_prompt
+
+            # Publish a message to the topic
+            client.publish(topic, "sd_unlock") #########################################################
         else:
             continue
 
 
 def sd_thread():
-    global sd_unlock, queue_prompt, broker_hostname, broker_port, topic, sd_prompt
+    global sd_unlock, vit_gpt2_unlock, queue_prompt, broker_hostname, broker_port, topic, vit_caption, max_ncycles_prompt
 
     # Set up the client
     client = mqtt.Client()
     # Connect to the broker
     client.connect(broker_hostname, broker_port)
 
+    ngen_prompt = max_ncycles_prompt+1
+    sd_prompt = ""
     while 1:
         time.sleep(0.5)
 
-        if sd_unlock:
-            sd_prompt = queue_prompt[0]
+        if sd_unlock and not vit_gpt2_unlock:
+            if not len(queue_prompt) == 0 and ngen_prompt>max_ncycles_prompt:
+                ngen_prompt = 0
+                sd_prompt = queue_prompt[0]
+                queue_prompt.pop(0) # remove this prompt from queue
+            
+            else:
+                sd_prompt = vit_caption
+                ngen_prompt+=1
+                print("Number of generations: " + str(ngen_prompt))
 
             print("Generating image for prompt: " + sd_prompt)
 
             command = "python optimizedSD/optimized_txt2img.py --prompt " + "'" + sd_prompt + "'" + " --ddim_steps " + str(ddim_steps) + \
             " --outdir " + outdir + " --n_iter " + str(n_iter) + " --n_samples " + str(n_samples) + " --scale " + str(scale)
-
             os.system(command)
-            queue_prompt.pop(0)
-
             print("Image Generated")
 
-            sd_unlock = False
             # Publish a message to the topic
-            client.publish(topic, "sd_unlock")
+            client.publish(topic, "vit_gpt2_unlock")
+
+            sd_unlock = False
 
 
 
-def vit_gpt2_thread:
-    global vit_gpt2_unlock, broker_hostname, broker_port, topic, sd_prompt
+def vit_gpt2_thread():
+    global vit_gpt2_unlock, sd_unlock, broker_hostname, broker_port, topic, vit_caption
 
     # Set up the client
     client = mqtt.Client()
@@ -91,22 +102,21 @@ def vit_gpt2_thread:
     while 1:
         time.sleep(0.5)
 
-        if vit_gpt2_unlock:
+        if vit_gpt2_unlock and not sd_unlock:
             print("----------------------------------------------")
-            print("Caption for generated image:")
             command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py"
             os.system(command)
-            print("----------------------------------------------")
 
             # Open or create a file if exists and write the predicted caption
-            with open("output/ciclo_limite/caption.txt", "r") as text_file:
-                sd_prompt = text_file.readline()
-            print("Caption" + sd_prompt)
-
-            vit_gpt2_unlock = False
+            with open("/output/ciclo_limite/caption.txt", "r") as text_file:
+                vit_caption = text_file.readline()
+            print("Caption for generated image:" + vit_caption)
+            print("----------------------------------------------")
 
             # Publish a message to the topic
             client.publish(topic, "sd_unlock")
+
+            vit_gpt2_unlock = False
 
 
 # Define a callback function for when a message is received

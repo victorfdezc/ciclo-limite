@@ -8,6 +8,7 @@ services:
       - ../sd-data:/data
       - ../sd-output:/output
       - sd-cache:/root/.cache
+      - ./:/ciclo-limite
     environment:
       - APP_MAIN_FILE=ciclo_limite.py
     deploy:
@@ -18,11 +19,11 @@ services:
               count: 1
               capabilities: [gpu]
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:latest
     volumes:
       - ./mosquitto_config/:/mosquitto/config/
       - ./mosquitto_log/:/mosquitto/log/
-      - mosquitto_data:/mosquitto/data/
+      # - mosquitto_data:/mosquitto/data/
     ports:
       - 1883:1883
       - 9001:9001

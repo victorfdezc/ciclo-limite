@@ -40,8 +40,8 @@ ENV GRADIO_SERVER_PORT=7860
 #ENV APP_MAIN_FILE=${OPTIMIZED_FILE}
 EXPOSE 7860
 
-VOLUME ["/root/.cache", "/data", "/output"]
+VOLUME ["/root/.cache", "/data", "/output","/ciclo-limite"]
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/root/stable-diffusion/docker-bootstrap.sh"]
-CMD python optimizedSD/${APP_MAIN_FILE}
+CMD python /ciclo-limite/${APP_MAIN_FILE}
