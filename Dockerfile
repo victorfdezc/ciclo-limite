@@ -44,4 +44,4 @@ VOLUME ["/root/.cache", "/data", "/output","/ciclo-limite"]
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/root/stable-diffusion/docker-bootstrap.sh"]
-CMD python /ciclo-limite/${APP_MAIN_FILE}
+CMD python -u /ciclo-limite/${APP_MAIN_FILE}

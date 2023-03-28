@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 
 ########### Ciclo Limite Parameters ###########
 max_ncycles_prompt = 5 # max number of cycles per prompt
+link = "https://rosmolarr.pythonanywhere.com/last"
 
 ########### Stable Diffusion Parameters ###########
 ddim_steps = 15
@@ -15,7 +16,9 @@ n_iter = 1
 n_samples =  1
 outdir = "outputs/txt2img-samples"
 
-link = "https://rosmolarr.pythonanywhere.com/last"
+########### VIT GPT2 Parameters ###########
+max_length = 16
+num_beams = 4
 
 ########### MQTT Parameters ###########
 broker_hostname = "mosquitto"
@@ -104,7 +107,7 @@ def vit_gpt2_thread():
 
         if vit_gpt2_unlock and not sd_unlock:
             print("----------------------------------------------")
-            command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py"
+            command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py --max_length " + str(max_length) + " --num_beams " + str(num_beams)
             os.system(command)
 
             # Open or create a file if exists and write the predicted caption
@@ -158,6 +161,5 @@ if __name__ == "__main__":
     thread_vit_gpt2.start()
 
     while 1:
-        ## TODO: OPENCV THINGS
         time.sleep(5000)
 
