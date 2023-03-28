@@ -110,7 +110,7 @@ def vit_gpt2_thread():
             command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py --max_length " + str(max_length) + " --num_beams " + str(num_beams)
             os.system(command)
 
-            # Open or create a file if exists and write the predicted caption
+            # Open a file if exists and read the predicted caption
             with open("/output/ciclo_limite/caption.txt", "r") as text_file:
                 vit_caption = text_file.readline()
             print("Caption for generated image:" + vit_caption)
