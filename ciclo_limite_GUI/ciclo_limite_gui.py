@@ -4,12 +4,15 @@ import time
 import paho.mqtt.client as mqtt
 
 ########### GUI Parameters ###########
-min_sec = 1 # minimum number of seconds showing the image or text (must be different than zero)
+min_sec = 10 # minimum number of seconds showing the image or text (must be different than zero)
 
 # Text parameters #
+text_color = (255,255,255) # BGR format (Blue Green Red format, from 0 to 255) 
 font = cv2.FONT_HERSHEY_SIMPLEX
 font_scale = 4
 thickness = 6
+max_text_size = 1900 # in pixels
+offset_line_spacing = 40 # in pixels
 
 # Image parameters #
 background_color = (255, 0, 0)  # BGR format (Blue Green Red format, from 0 to 255)
@@ -48,6 +51,23 @@ def on_message(client, userdata, message):
         show_image = False
 
 
+
+def crop_text(text, size):
+    subtexts = []
+    current_subtext = ""
+
+    for word in text.split():
+        current_subtext_size, _ = cv2.getTextSize(current_subtext, font, font_scale, thickness)
+        word_size, _ = cv2.getTextSize(current_subtext, font, font_scale, thickness)
+        if current_subtext_size[0] + word_size[0] > size:
+            subtexts.append(current_subtext)
+            current_subtext = ""
+        current_subtext += " " + word
+
+    if current_subtext:
+        subtexts.append(current_subtext.strip())
+
+    return subtexts
 
 if __name__ == "__main__":
     # Set up the MQTT client
@@ -102,14 +122,26 @@ if __name__ == "__main__":
             # Open a file if exists and read the predicted caption
             with open(text_path, "r") as text_file:
                 text = text_file.readline()
-                text = "horse"
-                print(text)
+                # print(text)
 
             # Create an image with text
             text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
             text_x = (background.shape[1] - text_size[0]) // 2
             text_y = (background.shape[0] + text_size[1]) // 2
-            img = cv2.putText(background, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+            img = np.copy(background) # Copy the background in img
+
+            # Check if the text exceeds the width of the image
+            if text_size[0] > max_text_size:
+                subtexts = crop_text(text, max_text_size)
+
+                for i,text in enumerate(subtexts):
+                    text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
+                    text_x = (background.shape[1] - text_size[0]) // 2
+                    text_y = (background.shape[0] + text_size[1]) // len(subtexts)
+                    img = cv2.putText(img, text, (text_x, text_y+(text_size[1]+offset_line_spacing)*i), font, font_scale, text_color, thickness, cv2.LINE_AA)
+            else:
+                img = cv2.putText(img, text, (text_x, text_y), font, font_scale, text_color, thickness, cv2.LINE_AA)
 
             # Show the current image on full screen
             cv2.imshow("Full Screen Image", img)
