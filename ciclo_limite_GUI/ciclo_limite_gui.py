@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import time
 import paho.mqtt.client as mqtt
+from deep_translator import GoogleTranslator
+import random
 
 ########### GUI Parameters ###########
 min_sec = 10 # minimum number of seconds showing the image or text (must be different than zero)
@@ -18,7 +20,7 @@ offset_line_spacing = 40 # in pixels
 background_color = (255, 0, 0)  # BGR format (Blue Green Red format, from 0 to 255)
 
 ########### MQTT Parameters ###########
-broker_hostname = "172.19.0.1"
+broker_hostname = "172.18.0.1"
 broker_port = 1883
 topic = "ciclo-limite"
 
@@ -31,12 +33,13 @@ screen_height = 1080 # resolution in px
 ########### Global Variables ###########
 show_image = False
 show_text = False
+new_prompt = ""
 
 
 
 # Define a callback function for when a message is received
 def on_message(client, userdata, message):
-    global show_image, show_text
+    global show_image, show_text, new_prompt
     
     print("Received message: ", str(message.payload.decode("utf-8")))
 
@@ -47,8 +50,17 @@ def on_message(client, userdata, message):
         show_text = False
         show_image = True
     else:
-        show_text = False
+        new_prompt = str(message.payload.decode("utf-8"))
+        show_text = True
         show_image = False
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to broker")
+    else:
+        print("Connection failed. Retrying in 5 seconds...")
+        time.sleep(5)
+        client.connect(broker_address)
 
 
 
@@ -72,12 +84,20 @@ def crop_text(text, size):
 if __name__ == "__main__":
     # Set up the MQTT client
     client = mqtt.Client()
+    # Set callback functions
+    client.on_connect = on_connect
+    client.on_message = on_message
     # Connect to the broker
-    client.connect(broker_hostname, broker_port)
+    connected = False
+    while not connected:
+        try:
+            client.connect(broker_hostname)
+            connected = True
+        except:
+            print("Connection refused. Retrying in 1 seconds...")
+            time.sleep(1)
     # Subscribe to a topic
     client.subscribe(topic)
-    # Set the callback function
-    client.on_message = on_message
     # Start the client loop
     client.loop_start()
 
@@ -103,7 +123,7 @@ if __name__ == "__main__":
             # at full screen. So, because screens are usually wider, we consider that the max height
             # is 512. Preserve 16:9 resolution.
             max_height = img.shape[0]
-            max_width = int(16/9*max_height)
+            max_width = int(screen_width/screen_height*max_height)
             dst = cv2.resize(background, (max_width, max_height))
             # Compute the position where the image will be
             x_pos = (max_width - img.shape[1]) // 2
@@ -119,10 +139,28 @@ if __name__ == "__main__":
 
         elif show_text:
             show_text = False
-            # Open a file if exists and read the predicted caption
-            with open(text_path, "r") as text_file:
-                text = text_file.readline()
-                # print(text)
+
+            if new_prompt:
+                text = new_prompt
+                new_prompt = ""
+            else:
+                # Open a file if exists and read the predicted caption
+                with open(text_path, "r") as text_file:
+                    text = text_file.readline()
+            # print(text)
+
+            # Translate prompt
+            text = GoogleTranslator(source='auto', target='es').translate(text)
+
+            # Remove word "montón" because it appears "un montón de veces"
+            new_string = ""
+            if "montón" in text:
+                for word in text.split():
+                    if word == "montón" and random.random() > 0.5:
+                        new_string += "conjunto "
+                    else:
+                        new_string += word + " "
+                text = new_string.strip()
 
             # Create an image with text
             text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)

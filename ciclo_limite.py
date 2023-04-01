@@ -4,15 +4,18 @@ import time
 import os
 from threading import Thread
 import paho.mqtt.client as mqtt
+from deep_translator import GoogleTranslator
+import random
 
 ########### Ciclo Limite Parameters ###########
-max_ncycles_prompt = 5 # max number of cycles per prompt
+max_ncycles_prompt = 0 # max number of cycles per prompt
 link = "https://rosmolarr.pythonanywhere.com/last"
+keywords = ["realistic","abstract",""]
 
 ########### Stable Diffusion Parameters ###########
-ddim_steps = 15
-scale = 7.5
-n_iter = 1
+ddim_steps = 5 # number of ddim sampling steps
+scale = 4 # cfg scale can be seen as the “Creativity vs. Prompt” scale. Lower numbers give the AI more freedom to be creative, while higher numbers force it to stick more to the prompt (7.5 gives the best balance between creativity and generating what you want)
+n_iter = 1 # sample this often
 n_samples =  1
 outdir = "outputs/txt2img-samples"
 
@@ -31,6 +34,7 @@ vit_caption = ""
 client = mqtt.Client() # Set up the MQTT client
 sd_unlock = False
 vit_gpt2_unlock = False
+ngen_prompt = 0
 ###############################################
 
 
@@ -46,18 +50,19 @@ def queue_thread():
         new_prompt = re.findall("<p>(.*?)<\/p>",txt)[0]
 
         if not new_prompt == prev_prompt:
-            queue_prompt.append(new_prompt)
+            queue_prompt.append(new_prompt.strip())
             print("New prompt: " + str(queue_prompt))
             prev_prompt = new_prompt
 
             # Publish a message to the topic
-            client.publish(topic, "sd_unlock") #########################################################
+            client.publish(topic, "sd_unlock")
         else:
             continue
 
 
 def sd_thread():
-    global sd_unlock, vit_gpt2_unlock, queue_prompt, broker_hostname, broker_port, topic, vit_caption, max_ncycles_prompt
+    global sd_unlock, vit_gpt2_unlock, queue_prompt, broker_hostname, broker_port, ngen_prompt, \
+            topic, vit_caption, max_ncycles_prompt, ddim_steps, scale, n_iter, n_samples, outdir
 
     # Set up the client
     client = mqtt.Client()
@@ -74,11 +79,18 @@ def sd_thread():
                 ngen_prompt = 0
                 sd_prompt = queue_prompt[0]
                 queue_prompt.pop(0) # remove this prompt from queue
+
+                client.publish(topic, sd_prompt)
             
             else:
                 sd_prompt = vit_caption
                 ngen_prompt+=1
                 print("Number of generations: " + str(ngen_prompt))
+
+            # Translate prompt
+            sd_prompt = GoogleTranslator(source='auto', target='en').translate(sd_prompt)
+            # Add random keyword
+            sd_prompt = random.choice(keywords) + " " + sd_prompt
 
             print("Generating image for prompt: " + sd_prompt)
 
@@ -95,7 +107,8 @@ def sd_thread():
 
 
 def vit_gpt2_thread():
-    global vit_gpt2_unlock, sd_unlock, broker_hostname, broker_port, topic, vit_caption
+    global vit_gpt2_unlock, sd_unlock, broker_hostname, broker_port, \
+            topic, vit_caption, max_length, num_beams, ngen_prompt
 
     # Set up the client
     client = mqtt.Client()
