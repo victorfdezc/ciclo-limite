@@ -50,7 +50,7 @@ def queue_thread():
         new_prompt = re.findall("<p>(.*?)<\/p>",txt)[0]
 
         if not new_prompt == prev_prompt:
-            queue_prompt.append(new_prompt.strip())
+            queue_prompt.append(new_prompt.strip().lower())
             print("New prompt: " + str(queue_prompt))
             prev_prompt = new_prompt
 
