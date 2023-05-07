@@ -2,10 +2,15 @@ import urllib.request
 import re
 import time
 import os
-from threading import Thread
 import paho.mqtt.client as mqtt
 from deep_translator import GoogleTranslator
 import random
+
+import sys
+sys.path.insert(1, '/optimizedSD')
+from optimized_txt2img_model import sd_model
+sys.path.insert(1, '/vit-gpt2-image-captioning')
+from vit_gpt2_image_captioning_model import vit_gpt2_image_captioning
 
 ########### Ciclo Limite Parameters ###########
 max_ncycles_prompt = 0 # max number of cycles per prompt
@@ -34,49 +39,42 @@ vit_caption = ""
 client = mqtt.Client() # Set up the MQTT client
 sd_unlock = False
 vit_gpt2_unlock = False
-ngen_prompt = 0
+prev_prompt = ""
+ngen_prompt = max_ncycles_prompt+1
+sd_prompt = ""
 ###############################################
 
 
 def queue_thread():
-    global queue_prompt
-    prev_prompt = ""
+    global queue_prompt,prev_prompt,client
+    
+    try:
+        f = urllib.request.urlopen(link)
+        txt = f.read().decode("utf-8")
+        new_prompt = re.findall("<p>(.*?)<\/p>",txt)[0]
+        print("Prompt read from web: " + str(new_prompt))
+    except:
+        print("Web page not available")
+        return
 
-    while 1:
-        time.sleep(0.5)
+    if not new_prompt == prev_prompt:
+        queue_prompt.append(new_prompt.strip().lower())
+        print("New prompt: " + str(queue_prompt))
+        prev_prompt = new_prompt
 
-        try:
-            f = urllib.request.urlopen(link)
-            txt = f.read().decode("utf-8")
-            new_prompt = re.findall("<p>(.*?)<\/p>",txt)[0]
-        except:
-            print("Web page not available")
-            return
-
-        if not new_prompt == prev_prompt:
-            queue_prompt.append(new_prompt.strip().lower())
-            print("New prompt: " + str(queue_prompt))
-            prev_prompt = new_prompt
-
+        while sd_unlock == False:
             # Publish a message to the topic
             client.publish(topic, "sd_unlock")
-        else:
-            continue
+
+            time.sleep(0.1)
+    else:
+        # continue
+        pass
 
 
-def sd_thread():
-    global sd_unlock, vit_gpt2_unlock, queue_prompt, broker_hostname, broker_port, ngen_prompt, \
-            topic, vit_caption, max_ncycles_prompt, ddim_steps, scale, n_iter, n_samples, outdir
-
-    # Set up the client
-    client = mqtt.Client()
-    # Connect to the broker
-    client.connect(broker_hostname, broker_port)
-
-    ngen_prompt = max_ncycles_prompt+1
-    sd_prompt = ""
-    while 1:
-        time.sleep(0.5)
+def sd_thread(model):
+    global sd_unlock, vit_gpt2_unlock, queue_prompt, ngen_prompt, \
+            vit_caption, max_ncycles_prompt, sd_prompt, client
 
         if sd_unlock and not vit_gpt2_unlock:
             if not len(queue_prompt) == 0 and ngen_prompt>max_ncycles_prompt:
@@ -98,45 +96,36 @@ def sd_thread():
 
             print("Generating image for prompt: " + sd_prompt)
 
-            command = "python optimizedSD/optimized_txt2img.py --prompt " + "'" + sd_prompt + "'" + " --ddim_steps " + str(ddim_steps) + \
-            " --outdir " + outdir + " --n_iter " + str(n_iter) + " --n_samples " + str(n_samples) + " --scale " + str(scale)
-            os.system(command)
+            # Generate image
+            model.prompt = sd_prompt
+            model.predict()
             print("Image Generated")
 
-            # Publish a message to the topic
-            client.publish(topic, "vit_gpt2_unlock")
+            while sd_unlock == True:
+                # Publish a message to the topic
+                client.publish(topic, "vit_gpt2_unlock")
+                time.sleep(0.1)
 
-            sd_unlock = False
 
 
 
-def vit_gpt2_thread():
-    global vit_gpt2_unlock, sd_unlock, broker_hostname, broker_port, \
-            topic, vit_caption, max_length, num_beams, ngen_prompt
+def vit_gpt2_thread(model):
+    global vit_gpt2_unlock, sd_unlock, vit_caption, client
 
-    # Set up the client
-    client = mqtt.Client()
-    # Connect to the broker
-    client.connect(broker_hostname, broker_port)
+    if vit_gpt2_unlock and not sd_unlock:
+        print("----------------------------------------------")
+        model.predict_caption()
 
-    while 1:
-        time.sleep(0.5)
+        # Open a file if exists and read the predicted caption
+        with open("/output/ciclo_limite/caption.txt", "r") as text_file:
+            vit_caption = text_file.readline()
+        print("Caption for generated image:" + vit_caption)
+        print("----------------------------------------------")
 
-        if vit_gpt2_unlock and not sd_unlock:
-            print("----------------------------------------------")
-            command = "python vit-gpt2-image-captioning/vit-gpt2-image-captioning.py --max_length " + str(max_length) + " --num_beams " + str(num_beams)
-            os.system(command)
-
-            # Open a file if exists and read the predicted caption
-            with open("/output/ciclo_limite/caption.txt", "r") as text_file:
-                vit_caption = text_file.readline()
-            print("Caption for generated image:" + vit_caption)
-            print("----------------------------------------------")
-
+        while sd_unlock == False:
             # Publish a message to the topic
             client.publish(topic, "sd_unlock")
 
-            vit_gpt2_unlock = False
 
 
 # Define a callback function for when a message is received
@@ -166,17 +155,13 @@ if __name__ == "__main__":
     # Start the client loop
     client.loop_start()
 
-
-
-    thread_queue = Thread(target = queue_thread, args=[])
-    thread_queue.start()
-
-    thread_sd = Thread(target = sd_thread, args=[])
-    thread_sd.start()
-
-    thread_vit_gpt2 = Thread(target = vit_gpt2_thread, args=[])
-    thread_vit_gpt2.start()
+    stable_diffusion_model = sd_model(ddim_steps=ddim_steps, outdir=outdir, n_iter=n_iter, n_samples=n_samples, scale=scale)
+    vit_gpt_model = vit_gpt2_image_captioning_model(max_length=max_length,num_beams=num_beams)
 
     while 1:
-        time.sleep(5000)
+        time.sleep(0.1)
 
+        queue_thread()
+        sd_thread(stable_diffusion_model)
+        time.sleep(10)
+        vit_gpt2_thread(vit_gpt_model) 
