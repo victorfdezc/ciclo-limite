@@ -1,3 +1,13 @@
+# Ciclo Límite - How to Install
+1. Install [NVIDIA drivers](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html#ubuntu-lts)
+2. Reboot PC and check with `nvidia-smi` if drivers have been installed succesfully
+3. Install [Docker](https://docs.docker.com/engine/install/ubuntu/)
+4. Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker)
+5. `git clone https://github.com/victorfdezc/ciclo-limite.git`
+6. Download from [HuggingFace](https://huggingface.co/CompVis/stable-diffusion-v-1-4-original) the trained weights and move the downloaded `.ckpt` file to `sd-data` directory with the name of `model.ckpt`. The directory `sd-data` must be one directory behind the project root folder `../`
+7. Build the project by executing `sudo docker compose up --build` in the project root folder `./`
+8. Install and initialize the GUI app by running `sh install.sh` in `./ciclo_limite_GUI`
+
 <h1 align="center">Optimized Stable Diffusion</h1>
 <p align="center">
     <img src="https://img.shields.io/github/last-commit/basujindal/stable-diffusion?logo=Python&logoColor=green&style=for-the-badge"/>

@@ -10,7 +10,7 @@ import sys
 sys.path.insert(1, '/optimizedSD')
 from optimized_txt2img_class import stable_diffusion_model
 sys.path.insert(1, '/vit-gpt2-image-captioning')
-from vit_gpt2_image_captioning_class import vit_gpt2_image_captioning
+from vit_gpt2_image_captioning_class import vit_gpt2_image_captioning_model
 
 ########### Ciclo Limite Parameters ###########
 max_ncycles_prompt = 0 # max number of cycles per prompt
@@ -38,7 +38,6 @@ queue_prompt = []
 vit_caption = ""
 client = mqtt.Client() # Set up the MQTT client
 sd_unlock = False
-vit_gpt2_unlock = False
 prev_prompt = ""
 ngen_prompt = max_ncycles_prompt+1
 sd_prompt = ""
@@ -62,21 +61,19 @@ def queue_thread():
         print("New prompt: " + str(queue_prompt))
         prev_prompt = new_prompt
 
-        while sd_unlock == False:
-            # Publish a message to the topic
-            client.publish(topic, "sd_unlock")
-
-            time.sleep(0.1)
+        sd_unlock = True
+        # Publish a message to the topic
+        client.publish(topic, "sd_unlock")
     else:
         # continue
         pass
 
 
 def sd_thread(model):
-    global sd_unlock, vit_gpt2_unlock, queue_prompt, ngen_prompt, \
+    global sd_unlock, queue_prompt, ngen_prompt, \
             vit_caption, max_ncycles_prompt, sd_prompt, client
 
-    if sd_unlock and not vit_gpt2_unlock:
+    if sd_unlock:
         if not len(queue_prompt) == 0 and ngen_prompt>max_ncycles_prompt:
             ngen_prompt = 0
             sd_prompt = queue_prompt[0]
@@ -101,18 +98,17 @@ def sd_thread(model):
         model.predict()
         print("Image Generated")
 
-        while sd_unlock == True:
-            # Publish a message to the topic
-            client.publish(topic, "vit_gpt2_unlock")
-            time.sleep(0.1)
+        sd_unlock = False
+        # Publish a message to the topic
+        client.publish(topic, "vit_gpt2_unlock")
 
 
 
 
 def vit_gpt2_thread(model):
-    global vit_gpt2_unlock, sd_unlock, vit_caption, client
+    global sd_unlock, vit_caption, client
 
-    if vit_gpt2_unlock and not sd_unlock:
+    if not sd_unlock:
         print("----------------------------------------------")
         model.predict_caption()
 
@@ -122,27 +118,9 @@ def vit_gpt2_thread(model):
         print("Caption for generated image:" + vit_caption)
         print("----------------------------------------------")
 
-        while sd_unlock == False:
-            # Publish a message to the topic
-            client.publish(topic, "sd_unlock")
-
-
-
-# Define a callback function for when a message is received
-def on_message(client, userdata, message):
-    global sd_unlock, vit_gpt2_unlock
-
-    print("Received message: ", str(message.payload.decode("utf-8")))
-
-    if message.payload.decode("utf-8") == "sd_unlock":
         sd_unlock = True
-        vit_gpt2_unlock = False
-    elif message.payload.decode("utf-8") == "vit_gpt2_unlock":
-        sd_unlock = False
-        vit_gpt2_unlock = True
-    else:
-        sd_unlock = False
-        vit_gpt2_unlock = False
+        # Publish a message to the topic
+        client.publish(topic, "sd_unlock")
 
 
 if __name__ == "__main__":
@@ -150,8 +128,6 @@ if __name__ == "__main__":
     client.connect(broker_hostname, broker_port)
     # Subscribe to a topic
     client.subscribe(topic)
-    # Set the callback function
-    client.on_message = on_message
     # Start the client loop
     client.loop_start()
 

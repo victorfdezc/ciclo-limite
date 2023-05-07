@@ -39,4 +39,5 @@ class vit_gpt2_image_captioning_model:
     # Open or create a file if exists and write the predicted caption
     with open("/output/ciclo_limite/caption.txt", "w+") as text_file:
       caption = self.predict_step(['/output/ciclo_limite/image_00000.png'])
+      print("Generated Caption:" + caption[0])
       text_file.write(caption[0])
