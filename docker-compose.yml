@@ -9,8 +9,10 @@ services:
       - ../sd-output:/output
       - sd-cache:/root/.cache
       - ./:/ciclo-limite
+      - ./optimizedSD:/optimizedSD
+      - ./vit-gpt2-image-captioning:/vit-gpt2-image-captioning
     environment:
-      - APP_MAIN_FILE=ciclo_limite.py
+      - APP_MAIN_FILE=ciclo_limite_mqtt.py
     deploy:
       resources:
         reservations:
@@ -29,3 +31,4 @@ services:
       - 9001:9001
 volumes:
   sd-cache:
+    
