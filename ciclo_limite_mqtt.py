@@ -74,7 +74,7 @@ def sd_thread(model):
             vit_caption, max_ncycles_prompt, sd_prompt, client
 
     if sd_unlock:
-        if not len(queue_prompt) == 0 and ngen_prompt>max_ncycles_prompt:
+        if not len(queue_prompt) == 0 and ngen_prompt>=max_ncycles_prompt:
             ngen_prompt = 0
             sd_prompt = queue_prompt[0]
             queue_prompt.pop(0) # remove this prompt from queue
