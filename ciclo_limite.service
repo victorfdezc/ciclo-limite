@@ -1,0 +1,11 @@
+[Unit]
+Description=Ciclo Limite
+After=network.target
+
+[Service]
+User=root
+ExecStart=/home/victor/ciclo-limite/start_ciclo_limite.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
