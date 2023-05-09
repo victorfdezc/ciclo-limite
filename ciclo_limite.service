@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 User=root
-ExecStart=/home/victor/ciclo-limite/start_ciclo_limite.sh
+ExecStart=/home/aster/ciclo-limite/start_ciclo_limite.sh
 Restart=always
 
 [Install]

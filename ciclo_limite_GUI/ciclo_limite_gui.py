@@ -5,13 +5,14 @@ import paho.mqtt.client as mqtt
 from deep_translator import GoogleTranslator
 import random
 from PIL import ImageFont, ImageDraw, Image
+import mouse
 
 
 ########### GUI Parameters ###########
 min_sec = 10 # minimum number of seconds showing the image or text (must be different than zero)
 
 # Image parameters #
-background_color = (255, 0, 0)  # BGR format (Blue Green Red format, from 0 to 255)
+background_color = (67, 0, 0)  # BGR format (Blue Green Red format, from 0 to 255)
 
 # Text parameters #
 custom_font = True
@@ -26,10 +27,10 @@ if not custom_font:
 else:
     # Custom font, Pillow library must be used. Parameters differs from OpenCV method
     font_path = "RockfordSans-Regular.otf"
-    font_size = 100
+    font_size = 50
     text_color = (255,255,255) # RGB format
     offset_line_spacing = 25 # in pixels
-    max_text_size = 1800 # in pixels
+    max_text_size = 900 # in pixels
 
 ########### MQTT Parameters ###########
 broker_hostname = "172.18.0.1"
@@ -39,8 +40,8 @@ topic = "ciclo-limite"
 ########### Other parameters ###########
 image_path = "../../sd-output/ciclo_limite/image_00000.png"
 text_path = "../../sd-output/ciclo_limite/caption.txt"
-screen_width = 1920 # resolution in px
-screen_height = 1080 # resolution in px
+screen_width = 1024 # resolution in px
+screen_height = 768 # resolution in px
 
 ########### Global Variables ###########
 show_image = False
@@ -146,6 +147,9 @@ if __name__ == "__main__":
     while 1:
         # General time sleep
         time.sleep(1)
+
+        # Move mouse cursor to avoid showing it
+        mouse.move(str(screen_width),str(screen_height))
         if show_image:
             show_image = False
 

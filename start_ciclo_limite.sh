@@ -2,4 +2,4 @@
 
 echo 'Starting Ciclo Limite'
 
-cd /home/victor/ciclo-limite && sudo docker compose up
+cd /home/aster/ciclo-limite && sudo docker compose up
