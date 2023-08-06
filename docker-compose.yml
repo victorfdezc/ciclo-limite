@@ -12,7 +12,7 @@ services:
       - ./optimizedSD:/optimizedSD
       - ./vit-gpt2-image-captioning:/vit-gpt2-image-captioning
     environment:
-      - APP_MAIN_FILE=ciclo_limite_mqtt.py
+      - APP_MAIN_FILE=ciclo_limite.py
     deploy:
       resources:
         reservations:

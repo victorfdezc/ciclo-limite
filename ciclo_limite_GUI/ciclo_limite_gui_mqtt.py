@@ -1,7 +1,3 @@
-'''
-Most reliable code -> This is the simplest Ciclo Limite GUI script. No MQTT. No threading.
-'''
-
 import cv2
 import numpy as np
 import time
@@ -10,11 +6,10 @@ from deep_translator import GoogleTranslator
 import random
 from PIL import ImageFont, ImageDraw, Image
 import mouse
-import os
 
 
 ########### GUI Parameters ###########
-translate_text = False # whether translate or not text into spanish
+min_sec = 10 # minimum number of seconds showing the image or text (must be different than zero)
 
 # Image parameters #
 background_color = (67, 0, 0)  # BGR format (Blue Green Red format, from 0 to 255)
@@ -37,24 +32,52 @@ else:
     offset_line_spacing = 25 # in pixels
     max_text_size = 900 # in pixels
 
+########### MQTT Parameters ###########
+broker_hostname = "172.18.0.1"
+broker_port = 1883
+topic = "ciclo-limite"
+
 ########### Other parameters ###########
 image_path = "../../sd-output/ciclo_limite/image_00000.png"
 text_path = "../../sd-output/ciclo_limite/caption.txt"
-screen_width = 2560 # resolution in px
-screen_height = 1600 # resolution in px
+screen_width = 1024 # resolution in px
+screen_height = 768 # resolution in px
 
 ########### Global Variables ###########
-last_time_image_update = 0
-last_time_text_update = 0
-last_time_image_update_prev = 0
-last_time_text_update_prev = 0
+show_image = False
+show_text = False
 new_prompt = ""
 
 
+
+# Define a callback function for when a message is received
+def on_message(client, userdata, message):
+    global show_image, show_text, new_prompt
+    
+    print("Received message: ", str(message.payload.decode("utf-8")))
+
+    if message.payload.decode("utf-8") == "sd_unlock":
+        show_text = True
+        show_image = False
+    elif message.payload.decode("utf-8") == "vit_gpt2_unlock":
+        show_text = False
+        show_image = True
+    else:
+        new_prompt = str(message.payload.decode("utf-8"))
+        show_text = True
+        show_image = False
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to broker")
+    else:
+        print("Connection failed. Retrying in 5 seconds...")
+        time.sleep(5)
+        client.connect(broker_address)
+
+
+
 def crop_text(text, size):
-    '''
-    Script for cropping text into subtexts to fit the whole sentence in screen
-    '''
     subtexts = []
     current_subtext = ""
 
@@ -72,9 +95,6 @@ def crop_text(text, size):
     return subtexts
 
 def crop_text_pil(text, size, font):
-    '''
-    Script for cropping text into subtexts to fit the whole sentence in screen
-    '''
     subtexts = []
     current_subtext = ""
 
@@ -94,6 +114,25 @@ def crop_text_pil(text, size, font):
     return subtexts
 
 if __name__ == "__main__":
+    # Set up the MQTT client
+    client = mqtt.Client()
+    # Set callback functions
+    client.on_connect = on_connect
+    client.on_message = on_message
+    # Connect to the broker
+    connected = False
+    while not connected:
+        try:
+            client.connect(broker_hostname)
+            connected = True
+        except:
+            print("Connection refused. Retrying in 1 seconds...")
+            time.sleep(1)
+    # Subscribe to a topic
+    client.subscribe(topic)
+    # Start the client loop
+    client.loop_start()
+
     if custom_font:
         # Load the custom font
         font = ImageFont.truetype(font_path, font_size)
@@ -106,18 +145,13 @@ if __name__ == "__main__":
     cv2.namedWindow("Full Screen Image", cv2.WND_PROP_FULLSCREEN)
     cv2.setWindowProperty("Full Screen Image", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     while 1:
-        # Get last updated time of image and text
-        last_time_image_update = os.path.getmtime(image_path)
-        last_time_text_update = os.path.getmtime(text_path)
-
         # General time sleep
         time.sleep(1)
 
         # Move mouse cursor to avoid showing it
         mouse.move(str(screen_width),str(screen_height))
-
-        if last_time_image_update > last_time_image_update_prev:
-            last_time_image_update_prev = last_time_image_update
+        if show_image:
+            show_image = False
 
             # Read the image and show it
             img = cv2.imread(image_path)
@@ -139,10 +173,10 @@ if __name__ == "__main__":
             cv2.imshow("Full Screen Image", dst)
 
             # Wait for a key press min_sec seconds and then continue with the loop
-            cv2.waitKey(1)
+            cv2.waitKey(min_sec*1000)
 
-        elif last_time_text_update > last_time_text_update_prev:
-            last_time_text_update_prev = last_time_text_update
+        elif show_text:
+            show_text = False
 
             if new_prompt:
                 text = new_prompt
@@ -154,8 +188,7 @@ if __name__ == "__main__":
             # print(text)
 
             # Translate prompt
-            if translate_text:
-                text = GoogleTranslator(source='auto', target='es').translate(text)
+            text = GoogleTranslator(source='auto', target='es').translate(text)
 
             # Remove word "montón" because it appears "un montón de veces"
             new_string = ""
@@ -219,7 +252,7 @@ if __name__ == "__main__":
             cv2.imshow("Full Screen Image", img)
 
             # Wait for a key press min_sec seconds and then continue with the loop
-            cv2.waitKey(1)
+            cv2.waitKey(min_sec*1000)
 
     # Close the window
     cv2.destroyAllWindows()

@@ -1,5 +1,5 @@
 opencv-python
 paho-mqtt
 deep-translator
-Pillow
+Pillow==9.5.0
 mouse
